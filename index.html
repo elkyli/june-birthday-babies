@@ -55,7 +55,8 @@
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-    html, body { height: 100%; margin: 0; }
+    /* Disable mobile font-boosting (it inflates button text and clips it under overflow:hidden) */
+    html, body { height: 100%; margin: 0; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
     body {
       font-family: var(--font-body);
