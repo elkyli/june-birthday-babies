@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Mobile-first: lock viewport, disable user zoom so the game feels app-like on phones -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#ff4fa3" />
+  <title>Birthday Dress-Up 🎀</title>
+
+  <!-- Playful rounded fonts, loaded non-blocking; falls back to system fonts offline -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@600;700;800&display=swap"
+        media="print" onload="this.media='all'" />
+  <noscript>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@600;700;800&display=swap" />
+  </noscript>
+
+  <style>
+    /* ============================================================
+       THEME — glossy "Barbie dress-up" palette
+       ============================================================ */
+    :root {
+      --pink-1: #ffd6ec;   /* lightest */
+      --pink-2: #ff9ed2;
+      --pink-3: #ff4fa3;   /* primary */
+      --pink-4: #e21f86;   /* deep */
+      --panel:  rgba(255, 255, 255, 0.22);
+      --white:  #ffffff;
+      --ink:    #7a1450;   /* readable text on pink */
+      --radius: 26px;
+
+      /* Type — playful rounded display + legible rounded body (system fallback) */
+      --font-display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      --font-body:    "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+
+      /* Spacing scale */
+      --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px;
+
+      /* Layered shadow scale (softer, more realistic depth) */
+      --shadow-sm: 0 2px 6px rgba(180, 10, 100, 0.25);
+      --shadow-md: 0 6px 16px rgba(180, 10, 100, 0.30);
+      --shadow-lg: 0 14px 34px rgba(180, 10, 100, 0.38);
+      --shadow: var(--shadow-lg);                 /* back-compat alias */
+
+      /* Motion easings */
+      --ease-bounce: cubic-bezier(.34, 1.56, .64, 1);   /* overshoot pop */
+      --ease-out:    cubic-bezier(.22, .61, .36, 1);
+
+      /* Reusable glossy inset highlight */
+      --gloss: inset 0 2px 4px rgba(255, 255, 255, 0.7), inset 0 -3px 8px rgba(190, 20, 110, 0.25);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body { height: 100%; margin: 0; }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--ink);
+      /* Bright pink gradient base */
+      background: linear-gradient(160deg, var(--pink-2) 0%, var(--pink-3) 55%, var(--pink-4) 100%);
+      overflow: hidden;                 /* screens manage their own scroll */
+      position: relative;
+    }
+
+    /* Soft blurred interior background — big diffuse glow blobs behind everything */
+    body::before {
+      content: "";
+      position: fixed; inset: -20%;
+      background:
+        radial-gradient(closest-side, rgba(255,255,255,0.55), transparent) 18% 22% / 55% 55% no-repeat,
+        radial-gradient(closest-side, rgba(255,170,225,0.7), transparent) 82% 18% / 50% 50% no-repeat,
+        radial-gradient(closest-side, rgba(255,255,255,0.4), transparent) 70% 85% / 60% 60% no-repeat;
+      filter: blur(40px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       APP SHELL — one screen visible at a time
+       ============================================================ */
+    #app {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      max-width: 480px;            /* phone-width; centered on larger screens */
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      padding: 64px 22px 28px;
+      overflow-y: auto;
+    }
+    .screen.active { display: flex; animation: screenIn 0.42s var(--ease-bounce) both; }
+
+    @keyframes screenIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.985); }
+      to   { opacity: 1; transform: none; }
+    }
+    /* small overshoot pop used by placed gifts */
+    @keyframes popIn {
+      0%   { transform: scale(0); }
+      70%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    /* ============================================================
+       SHARED UI — titles, buttons, back arrow
+       ============================================================ */
+    h1 {
+      font-family: var(--font-display);
+      font-size: 2.1rem;
+      font-weight: 800;
+      text-align: center;
+      color: var(--white);
+      margin: 8px 0 4px;
+      letter-spacing: 0.5px;
+      /* layered "sticker" depth */
+      text-shadow: 0 2px 0 #ff8fc4, 0 4px 0 var(--pink-4), 0 7px 10px rgba(150, 10, 80, 0.4);
+    }
+    /* Title on the name screen gently wiggles */
+    #screen-name h1 {
+      transform-origin: center;
+      animation: titleWiggle 4.5s ease-in-out infinite;
+    }
+    @keyframes titleWiggle {
+      0%, 100% { transform: rotate(-1.3deg); }
+      50%      { transform: rotate(1.3deg); }
+    }
+    .subtitle {
+      text-align: center;
+      color: var(--white);
+      opacity: 0.95;
+      margin: 0 0 22px;
+      font-size: 1rem;
+      line-height: 1.55;
+    }
+    /* Label sitting above the name input */
+    .name-label {
+      align-self: flex-start;
+      margin: 0 0 -8px 16px;
+      color: var(--white);
+      font-weight: 700;
+      font-size: 1.05rem;
+      text-shadow: 0 2px 3px rgba(150, 10, 80, 0.4);
+    }
+
+    /* Big rounded glossy 3D "candy" button with white outline + shine sweep */
+    .btn {
+      position: relative;
+      overflow: hidden;
+      appearance: none;
+      border: 3px solid var(--white);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #ffa6d6 0%, var(--pink-3) 60%, var(--pink-4) 100%);
+      color: var(--white);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.3rem;
+      padding: 15px 30px;
+      box-shadow: var(--shadow-md), var(--gloss), 0 4px 0 var(--pink-4);
+      cursor: pointer;
+      transition: transform 0.12s var(--ease-bounce), filter 0.12s ease, box-shadow 0.12s ease;
+    }
+    /* depresses onto its deep-pink lip */
+    .btn:active {
+      transform: translateY(3px) scale(0.98);
+      box-shadow: var(--shadow-sm), var(--gloss);
+      filter: brightness(1.03);
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    /* diagonal shine that sweeps across periodically */
+    .btn::after {
+      content: "";
+      position: absolute; top: 0; left: -60%;
+      width: 45%; height: 100%;
+      background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.55) 50%, transparent 80%);
+      transform: skewX(-15deg);
+      pointer-events: none;
+      animation: shine 3.6s ease-in-out infinite;
+    }
+    @keyframes shine {
+      0%       { left: -60%; }
+      55%, 100% { left: 130%; }
+    }
+
+    /* Circular back-arrow button, top-left */
+    .back-btn {
+      position: absolute;
+      top: 16px; left: 16px;
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 3px solid var(--white);
+      background: linear-gradient(180deg, #ff7ec0, var(--pink-3));
+      color: var(--white);
+      font-size: 1.5rem;
+      line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      z-index: 5;
+      transition: transform 0.12s ease;
+    }
+    .back-btn:active { transform: scale(0.9); }
+
+    /* ============================================================
+       SCREEN: NAME
+       ============================================================ */
+    .name-form {
+      margin: auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-items: center;
+    }
+    .input-wrap { position: relative; width: 100%; }
+    .name-input {
+      width: 100%;
+      border: 3px solid var(--white);
+      border-radius: 999px;
+      padding: 16px 22px;
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 1.2rem;
+      text-align: center;
+      color: var(--ink);
+      background: rgba(255,255,255,0.9);
+      box-shadow: var(--shadow-md);
+      outline: none;
+      transition: transform 0.18s var(--ease-bounce), box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .name-input::placeholder { color: #c76aa0; font-weight: 600; }
+    .name-input:focus {
+      border-color: #fff;
+      transform: scale(1.02);
+      box-shadow: var(--shadow-md), 0 0 0 5px rgba(255,255,255,0.5);
+    }
+    /* ✨ sparkle that pops in when the input is focused */
+    .input-spark {
+      position: absolute; right: 16px; top: 50%;
+      font-size: 1.4rem; pointer-events: none;
+      opacity: 0; transform: translateY(-50%) scale(0) rotate(-30deg);
+      transition: opacity 0.25s ease, transform 0.25s var(--ease-bounce);
+    }
+    .name-input:focus + .input-spark {
+      opacity: 1; transform: translateY(-50%) scale(1) rotate(0deg);
+    }
+
+    /* ============================================================
+       SCREEN: CHARACTER — two tappable cards side by side
+       ============================================================ */
+    .char-row {
+      display: flex;
+      gap: 16px;
+      margin: auto 0;
+    }
+    .char-card {
+      position: relative;
+      flex: 1;
+      background: var(--panel);
+      border: 3px solid var(--white);
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      text-align: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: var(--shadow-md), inset 0 0 0 1px rgba(255,255,255,0.4);
+      transition: transform 0.18s var(--ease-bounce), box-shadow 0.18s ease, background 0.15s ease;
+      animation: floaty 3.4s ease-in-out infinite;
+    }
+    .char-row .char-card:nth-child(2) { animation-delay: -1.7s; }
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+    /* glass top sheen */
+    .char-card::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,0.45), transparent 42%);
+      pointer-events: none; z-index: 0;
+    }
+    .char-card img, .char-card .label, .char-card .crown { position: relative; z-index: 1; }
+    .char-card:hover {
+      animation: none;
+      transform: translateY(-5px) scale(1.02);
+      box-shadow: var(--shadow-lg), 0 0 22px rgba(255,255,255,0.5);
+    }
+    .char-card:active { animation: none; transform: scale(0.97); }
+    .char-card.selected {
+      animation: none;
+      background: rgba(255,255,255,0.55);
+      transform: translateY(-6px) scale(1.03);
+      box-shadow: var(--shadow-lg), 0 0 26px rgba(255,255,255,0.6);
+    }
+    /* radiating burst ring when chosen */
+    .char-card.selected::after {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      border: 3px solid rgba(255,255,255,0.9);
+      pointer-events: none; z-index: 2;
+      animation: burst 0.6s ease-out forwards;
+    }
+    @keyframes burst {
+      from { transform: scale(0.6); opacity: 0.9; }
+      to   { transform: scale(1.28); opacity: 0; }
+    }
+    /* crown drops onto the chosen birthday girl */
+    .char-card .crown {
+      position: absolute; top: -20px; left: 50%;
+      font-size: 2rem; pointer-events: none;
+      transform: translateX(-50%) scale(0);
+      transition: transform 0.3s var(--ease-bounce);
+    }
+    .char-card.selected .crown {
+      animation: crownDrop 0.5s var(--ease-bounce) forwards;
+    }
+    @keyframes crownDrop {
+      0%   { transform: translateX(-50%) translateY(-16px) scale(0) rotate(-20deg); }
+      100% { transform: translateX(-50%) translateY(0) scale(1) rotate(0); }
+    }
+    .char-card img {
+      width: 100%;
+      aspect-ratio: 3 / 4;          /* portrait frame for full-body art */
+      object-fit: contain;          /* show the whole figure, no cropping */
+      border-radius: 18px;
+      background: transparent;      /* transparent cutout sits on the card */
+      filter: drop-shadow(0 8px 14px rgba(150,10,80,0.4));
+    }
+    .char-card .label {
+      display: block;
+      margin-top: 10px;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--white);
+      text-shadow: 0 2px 0 rgba(190,20,110,0.5);
+    }
+
+    /* ============================================================
+       SCREEN: GIFTS — pink panel item picker + countdown
+       ============================================================ */
+    .timer-wrap { text-align: center; margin-bottom: 14px; }
+    /* Animatable progress var for the conic ring (falls back to stepping) */
+    @property --p {
+      syntax: '<number>';
+      inherits: false;
+      initial-value: 100;
+    }
+    .timer {
+      position: relative;
+      display: inline-flex;
+      width: 92px; height: 92px;
+      padding: 7px;                  /* ring thickness */
+      border-radius: 50%;
+      /* draining ring: white up to --p%, faint track after */
+      background: conic-gradient(var(--white) calc(var(--p, 100) * 1%), rgba(255,255,255,0.28) 0);
+      box-shadow: var(--shadow-md), 0 0 0 3px rgba(255,255,255,0.5);
+      transition: --p 0.95s linear;
+    }
+    .timer-num {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #ff7ec0, var(--pink-4));
+      box-shadow: var(--gloss);
+      color: var(--white);
+      font-family: var(--font-display);
+      font-size: 2.1rem;
+      font-weight: 800;
+    }
+    .timer.low { animation: pulse 0.5s infinite alternate; }
+    .timer.low { background: conic-gradient(#ffd23f calc(var(--p, 100) * 1%), rgba(255,255,255,0.28) 0); }
+    @keyframes pulse { to { transform: scale(1.1); filter: brightness(1.12); } }
+
+    .hint { text-align: center; color: var(--white); font-size: 0.9rem; margin: 0 0 12px; min-height: 1.2em; }
+    /* "Done" — finish before the timer runs out; sits below the gift stage */
+    .done-btn {
+      align-self: center;
+      flex: 0 0 auto;
+      margin-top: 14px;
+      font-size: 1.1rem;
+      padding: 12px 36px;
+    }
+
+    /* The stage: gift column | character drop-zone | gift column */
+    .gift-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .gift-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+      width: 84px;
+      flex: 0 0 auto;
+    }
+
+    /* A draggable gift chip */
+    .gift {
+      position: relative;
+      border: 3px solid rgba(255,255,255,0.85);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.28);
+      padding: 6px;
+      cursor: grab;
+      touch-action: none;          /* let our pointer handlers own the gesture (no scroll-steal on touch) */
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .gift:active { cursor: grabbing; }
+    /* gentle staggered idle bob so the chips feel alive */
+    .gift { animation: giftFloat 3s ease-in-out infinite; }
+    .gift:nth-child(2) { animation-delay: -1s; }
+    .gift:nth-child(3) { animation-delay: -2s; }
+    @keyframes giftFloat {
+      0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+      50%      { transform: translateY(-5px) rotate(1.5deg); }
+    }
+    .gift img,
+    .gift .gift-emoji {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.4rem;
+      pointer-events: none;        /* taps/drags register on the tile, not the image */
+    }
+    .gift.dragging { opacity: 0.3; animation: none; }   /* original dims while its ghost is dragged */
+    .gift.given    { opacity: 0.4; animation: none; }   /* already placed on the character */
+    .gift.given::after {
+      content: "✓";
+      position: absolute; top: -8px; right: -8px;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--pink-4);
+      color: #fff;
+      border: 2px solid #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800;
+    }
+
+    /* Center drop target holding the birthday girl */
+    .drop-zone {
+      position: relative;
+      flex: 1 1 auto;
+      align-self: stretch;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 0 6px;
+      padding: 12px 8px;
+      border-radius: var(--radius);
+      border: 3px dashed rgba(255,255,255,0.7);
+      background: var(--panel);
+      backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+      transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+    }
+    /* breathing "invite" glow while gifts still need giving */
+    .drop-zone::before {
+      content: "";
+      position: absolute; inset: -3px;
+      border-radius: inherit;
+      pointer-events: none; z-index: 0;
+      opacity: 0;
+      box-shadow: 0 0 22px 5px rgba(255,255,255,0.55);
+    }
+    .drop-zone.inviting::before { animation: inviteGlow 2.2s ease-in-out infinite; }
+    @keyframes inviteGlow { 0%, 100% { opacity: 0; } 50% { opacity: 0.9; } }
+    .drop-zone.hot {                 /* a giftable item is hovering over the character */
+      background: rgba(255,255,255,0.5);
+      border-style: solid;
+      border-color: #fff;
+      transform: scale(1.04);
+      box-shadow: var(--shadow), 0 0 26px 6px rgba(255,255,255,0.7);
+    }
+    .drop-char {
+      width: auto;
+      max-width: 100%;
+      max-height: 230px;            /* full-body figure as the centerpiece */
+      object-fit: contain;
+      filter: drop-shadow(0 6px 12px rgba(150,10,80,0.45));
+      pointer-events: none;
+    }
+    /* A gift dropped onto the character STAYS where released — and can be
+       dragged around the box afterwards, or tapped to remove. */
+    .placed-gift {
+      position: absolute;
+      width: 60px; height: 60px;
+      margin: -30px 0 0 -30px;       /* center the chip on its point */
+      border: 2px solid #fff;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.55);
+      box-shadow: 0 4px 10px rgba(150,10,80,0.3);
+      display: flex; align-items: center; justify-content: center;
+      cursor: grab;
+      touch-action: none;            /* our pointer handlers own the gesture */
+      z-index: 3;                    /* sits above the character */
+      animation: popIn 0.28s var(--ease-bounce);
+    }
+    /* sparkle flash where a gift lands */
+    .place-spark {
+      position: absolute; z-index: 2; pointer-events: none;
+      width: 60px; height: 60px; margin: -30px 0 0 -30px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.7rem;
+      animation: placeSpark 0.55s ease-out forwards;
+    }
+    @keyframes placeSpark {
+      0%   { transform: scale(0.3) rotate(0); opacity: 0; }
+      35%  { transform: scale(1.1) rotate(20deg); opacity: 1; }
+      100% { transform: scale(1.7) rotate(40deg); opacity: 0; }
+    }
+    .placed-gift.grabbing {
+      cursor: grabbing;
+      transform: scale(1.1);
+      z-index: 6;                    /* lift above the others while moving */
+      box-shadow: 0 8px 16px rgba(150,10,80,0.45);
+    }
+    .placed-gift img,
+    .placed-gift .gift-emoji {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+      font-size: 1.7rem;
+    }
+    /* corner remove button on a placed gift */
+    .placed-x {
+      position: absolute; top: -9px; right: -9px;
+      width: 23px; height: 23px;
+      padding: 0; border: 2px solid #fff;
+      border-radius: 50%;
+      background: var(--pink-4);
+      color: #fff; font-size: 15px; font-weight: 800; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 4;
+      box-shadow: 0 2px 5px rgba(150,10,80,0.4);
+    }
+    .placed-x:active { transform: scale(0.88); }
+    .drop-zone.frozen { opacity: 0.95; }
+    .drop-zone.frozen .placed-gift { cursor: default; }
+    .drop-zone.frozen .placed-x { display: none; }   /* not removable once finished */
+
+    /* The floating clone that follows the finger/cursor while dragging */
+    .drag-ghost {
+      position: fixed;
+      width: 72px; height: 72px;
+      margin: -36px 0 0 -36px;     /* center on the pointer */
+      object-fit: contain;
+      pointer-events: none;
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.6rem;
+      filter: drop-shadow(0 8px 12px rgba(0,0,0,0.35));
+    }
+
+    /* ============================================================
+       SCREEN: RESULTS — celebratory layout
+       ============================================================ */
+    .result-card {
+      position: relative;
+      margin: auto 0;
+      /* deeper pink fill so white text stays legible wherever the card lands */
+      background: linear-gradient(180deg, rgba(255,120,190,0.9), rgba(226,31,134,0.92));
+      border: 3px solid var(--white);
+      border-radius: var(--radius);
+      padding: 24px 18px;
+      text-align: center;
+      backdrop-filter: blur(8px);
+      box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255,255,255,0.4);
+      animation: tada 0.6s var(--ease-bounce) both;
+    }
+    @keyframes tada {
+      0%   { transform: scale(0.7); opacity: 0; }
+      60%  { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    /* twinkling sparkles in the card corners */
+    .result-card::before, .result-card::after {
+      content: "✨";
+      position: absolute; font-size: 1.3rem; pointer-events: none;
+      animation: twinkle 1.8s ease-in-out infinite;
+    }
+    .result-card::before { top: 10px; left: 14px; animation-delay: 0.2s; }
+    .result-card::after  { top: 16px; right: 16px; animation-delay: 0.9s; }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50%      { opacity: 1;   transform: scale(1.2); }
+    }
+    .result-card .who {
+      color: var(--white);
+      font-size: 1.15rem;
+      margin: 4px 0 18px;
+      text-shadow: 0 2px 4px rgba(150,10,80,0.5);
+    }
+    .result-card .who b { font-size: 1.35rem; }
+    /* The chosen character with the gifts placed on them — no surrounding box */
+    .result-stage {
+      position: relative;
+      width: max-content;
+      max-width: 100%;
+      margin: 4px auto 12px;
+    }
+    .result-char {
+      position: relative;        /* the image defines the stage size */
+      display: block;
+      width: auto;
+      max-width: 100%;
+      max-height: 248px;
+      margin: 0 auto;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(150, 10, 80, 0.4));
+      animation: charIn 0.5s var(--ease-out) 0.15s both;
+    }
+    @keyframes charIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    /* gifts sit directly on the character (no chip box), where they were placed */
+    .result-gift {
+      position: absolute;
+      transform: translate(-50%, -50%);   /* center on the stored point */
+      aspect-ratio: 1 / 1;
+      filter: drop-shadow(0 3px 6px rgba(150, 10, 80, 0.45));
+      animation: giftIn 0.45s var(--ease-bounce) both;
+    }
+    @keyframes giftIn {
+      from { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+      to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    .result-gift img,
+    .result-gift .gift-emoji {
+      width: 100%; height: 100%;
+      object-fit: contain;
+    }
+    .result-note {
+      color: var(--white);
+      font-style: italic;
+      margin: 0 0 16px;
+      min-height: 0;
+    }
+    /* secondary "see what others picked" button */
+    .ghost-btn {
+      margin-top: 10px;
+      font-size: 1.02rem;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.2);
+      box-shadow: var(--shadow-sm), var(--gloss);
+    }
+
+    /* ============================================================
+       SCREEN: TALLY — leaderboard of everyone's gift picks
+       ============================================================ */
+    .tally-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .tally-char {
+      background: var(--panel);
+      border: 3px solid var(--white);
+      border-radius: var(--radius);
+      padding: 14px;
+      backdrop-filter: blur(6px);
+      box-shadow: var(--shadow-md), inset 0 0 0 1px rgba(255,255,255,0.4);
+    }
+    .tally-char-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .tally-avatar { width: 40px; height: 50px; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(150,10,80,0.4)); }
+    .tally-name {
+      font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;
+      color: var(--white); text-shadow: 0 2px 0 rgba(190,20,110,0.5);
+    }
+    .tally-players { margin-left: auto; color: var(--white); font-size: 0.85rem; opacity: 0.92; }
+    .tally-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 9px; padding: 4px; border-radius: 12px;
+    }
+    .tally-row.you { background: rgba(255,255,255,0.28); }
+    .tally-thumb {
+      width: 42px; height: 42px; flex: 0 0 auto;
+      object-fit: contain; border-radius: 10px;
+      background: rgba(255,255,255,0.55); padding: 3px;
+    }
+    .tally-bar-wrap { flex: 1; min-width: 0; }
+    .tally-bar-top {
+      display: flex; justify-content: space-between; align-items: center;
+      color: var(--white); font-size: 0.8rem; margin-bottom: 4px; min-height: 1.3em; gap: 6px;
+    }
+    .tally-count { font-family: var(--font-display); font-weight: 800; font-size: 1rem; }
+    .tally-track { height: 10px; background: rgba(255,255,255,0.3); border-radius: 999px; overflow: hidden; }
+    .tally-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #fff, #ffd6ec);
+      transition: width 0.6s var(--ease-out);
+    }
+    .tally-badge { font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+    .tally-badge.top { background: #ffd23f; color: #7a4b00; }
+    .tally-badge.you { background: #fff; color: var(--pink-4); }
+    .tally-msg { text-align: center; color: var(--white); padding: 36px 10px; font-size: 1.05rem; }
+
+    /* ============================================================
+       DESKTOP / WIDER SCREENS — give the app room; tally goes side-by-side.
+       Game screens stay comfortably centered (not stretched) so the
+       drag-and-drop proportions are unchanged.
+       ============================================================ */
+    @media (min-width: 768px) {
+      #app { max-width: 840px; }
+      .name-form   { max-width: 440px; }
+      .char-row    { max-width: 680px; margin-left: auto; margin-right: auto; }
+      .gift-stage  { max-width: 480px; margin-left: auto; margin-right: auto; }
+      .result-card { max-width: 460px; margin-left: auto; margin-right: auto; }
+      /* June & Jordyn horizontal; Play Again sits below both */
+      .tally-content { flex-direction: row; align-items: flex-start; gap: 20px; }
+      .tally-content > .tally-char { flex: 1; min-width: 0; }
+      #tallyPlayAgain { max-width: 340px; margin-left: auto; margin-right: auto; }
+    }
+
+    .confetti {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      overflow: hidden;
+    }
+    .confetti span {
+      position: absolute; top: -10vh;
+      width: 10px; height: 14px;
+      border-radius: 2px;
+      animation: fall linear infinite;
+    }
+    .confetti span.round { border-radius: 50%; }
+    @keyframes fall {
+      0%   { transform: translate(0, -10vh) rotate(0); }
+      100% { transform: translate(var(--x, 0px), 120vh) rotate(540deg); }
+    }
+    /* one-shot burst from center on results reveal */
+    .confetti span.burst {
+      top: 32vh; left: 50vw;
+      animation: burstFly 0.9s ease-out forwards;
+    }
+    @keyframes burstFly {
+      from { transform: translate(0, 0) scale(1); opacity: 1; }
+      to   { transform: translate(var(--bx), var(--by)) scale(0.6); opacity: 0; }
+    }
+
+    /* ============================================================
+       AMBIENT BACKGROUND DECOR — floating hearts / balloons / sparkles
+       ============================================================ */
+    .bg-decor {
+      position: fixed; inset: 0;
+      z-index: 0;                    /* behind #app (z-index:1) */
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .bg-decor span {
+      position: absolute; bottom: -12%;
+      font-size: 1.7rem;
+      opacity: 0;
+      animation: rise linear infinite;
+    }
+    @keyframes rise {
+      0%   { transform: translateY(0) translateX(0) rotate(0); opacity: 0; }
+      12%  { opacity: 0.75; }
+      88%  { opacity: 0.75; }
+      100% { transform: translateY(-122vh) translateX(var(--sway, 20px)) rotate(35deg); opacity: 0; }
+    }
+
+    /* ============================================================
+       MOTION ACCESSIBILITY — calm everything for reduced-motion
+       ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+      .bg-decor, .confetti { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ambient floating decorations (filled in by JS) -->
+  <div class="bg-decor" id="bgDecor" aria-hidden="true"></div>
+
+  <div id="app">
+    <!-- ============ SCREEN 1: NAME ============ -->
+    <section id="screen-name" class="screen active">
+      <h1>Happy Birthday Jordyn &amp; June! 🎈</h1>
+      <p class="subtitle">
+        Your mission: Pick e-presents.<br />
+        Your challenge: Don't overthink it. You only have 10 secs!<br />
+        Your reward: Eternal birthday glory (and probably laughter).
+      </p>
+      <form class="name-form" id="nameForm">
+        <label class="name-label" for="nameInput">Your name plzzz</label>
+        <div class="input-wrap">
+          <input class="name-input" id="nameInput" type="text"
+                 placeholder="✨ type it here ✨" autocomplete="off" maxlength="20" required />
+          <span class="input-spark" aria-hidden="true">✨</span>
+        </div>
+        <button class="btn" type="submit">Next</button>
+      </form>
+    </section>
+
+    <!-- ============ SCREEN 2: CHARACTER ============ -->
+    <section id="screen-character" class="screen">
+      <button class="back-btn" data-back="screen-name" aria-label="Back">‹</button>
+      <h1>Whose birthday?</h1>
+      <p class="subtitle">Tap the birthday girl 👑</p>
+      <div class="char-row" id="charRow">
+        <!-- cards injected by JS -->
+      </div>
+    </section>
+
+    <!-- ============ SCREEN 3: GIFTS (drag & drop) ============ -->
+    <section id="screen-gifts" class="screen">
+      <button class="back-btn" data-back="screen-character" aria-label="Back">‹</button>
+      <h1 id="giftTitle">Drag 2 gifts!</h1>
+      <div class="timer-wrap"><div class="timer" id="timer"><span class="timer-num" id="timerNum">10</span></div></div>
+      <p class="hint" id="giftHint">Drag gifts onto the birthday girl…</p>
+      <!-- Character sits in the middle; gifts flank it on both sides.
+           Drag a gift onto the character to give it. Tap a given gift to remove it. -->
+      <div class="gift-stage">
+        <div class="gift-col" id="giftColLeft"><!-- gifts injected by JS --></div>
+        <div class="drop-zone" id="dropZone">
+          <img class="drop-char" id="dropChar" alt="" />
+          <!-- gifts dropped here stay exactly where they're released -->
+        </div>
+        <div class="gift-col" id="giftColRight"><!-- gifts injected by JS --></div>
+      </div>
+      <!-- finish early without waiting out the timer -->
+      <button class="btn done-btn" id="doneBtn" type="button">Done&nbsp;✓</button>
+    </section>
+
+    <!-- ============ SCREEN 4: RESULTS ============ -->
+    <section id="screen-results" class="screen">
+      <h1>🎉 Happy Birthday! 🎉</h1>
+      <div class="result-card">
+        <p class="who" id="resultWho"></p>
+        <div class="result-stage" id="resultStage"><!-- character + placed gifts injected --></div>
+        <p class="result-note" id="resultNote"></p>
+        <button class="btn" id="playAgain">Play Again 💖</button>
+        <button class="btn ghost-btn" id="seeOthersBtn" type="button">See what others have picked 👀</button>
+      </div>
+    </section>
+
+    <!-- ============ SCREEN 5: TALLY (what everyone picked) ============ -->
+    <section id="screen-tally" class="screen">
+      <button class="back-btn" data-back="screen-results" aria-label="Back">‹</button>
+      <h1>What everyone picked 👀</h1>
+      <p class="subtitle">The party's top gifts — live!</p>
+      <div class="tally-content" id="tallyContent"><!-- filled by JS --></div>
+      <button class="btn" id="tallyPlayAgain" type="button">Play Again 💖</button>
+    </section>
+  </div>
+
+  <div class="confetti" id="confetti"></div>
+
+  <script>
+  /* ================================================================
+     BIRTHDAY DRESS-UP GAME — plain JS, no frameworks, no build step.
+     Mobile-first single-page game with four screens.
+     ================================================================ */
+  (function () {
+    "use strict";
+
+    // ---- CONFIG -------------------------------------------------
+    // GIFT_COUNT must match the number of *-gift-N.png files in /assets.
+    // (Keep in sync with assets/_make_placeholders.py if you regenerate.)
+    const GIFT_COUNT = 6;
+    const MAX_PICKS  = 2;
+    const TIMER_SECONDS = 10;
+
+    // Two characters. `id` drives the gift filenames: <id>-gift-N.png
+    const CHARACTERS = [
+      { id: "june",   name: "June",   img: "assets/june.png" },
+      { id: "jordyn", name: "Jordyn", img: "assets/jordyn.png" },
+    ];
+
+    // Results headline — one of these is picked at random each time. `c` is the
+    // character name, already wrapped in <b> for emphasis.
+    const RESULT_LINES = [
+      (c) => c + " is currently judging your gift choices…",
+      (c) => "Hmm… interesting picks. Let's hope " + c + " agrees!",
+      (c) => "You've done it. " + c + " now knows what kind of friend you are.",
+      (c) => c + " is going to love this! Great choice 🎁",
+      (c) => "Bold choices! " + c + " will remember these forever 💖",
+    ];
+
+    // ---- SESSION STATE (kept for the whole session) -------------
+    const state = {
+      playerName: "",
+      character: null,        // the chosen CHARACTERS entry
+      selectedGifts: [],      // array of gift indexes (1..GIFT_COUNT)
+    };
+
+    let countdownId = null;   // setInterval handle for the gift timer
+
+    // ---- TINY DOM HELPERS ---------------------------------------
+    const $  = (sel) => document.querySelector(sel);
+    const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+
+    // Show exactly one screen by id.
+    function showScreen(id) {
+      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+      $("#" + id).classList.add("active");
+    }
+
+    // Build the path to a character's gift image.
+    function giftSrc(charId, n) { return "assets/" + charId + "-gift-" + n + ".png"; }
+
+    /* ============================================================
+       SCREEN 1 — NAME
+       ============================================================ */
+    $("#nameForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const name = $("#nameInput").value.trim();
+      if (!name) return;
+      state.playerName = name;
+      buildCharacterCards();
+      showScreen("screen-character");
+    });
+
+    /* ============================================================
+       SCREEN 2 — CHARACTER SELECT
+       ============================================================ */
+    function buildCharacterCards() {
+      const row = $("#charRow");
+      row.innerHTML = "";
+      CHARACTERS.forEach((c) => {
+        const card = el("div", "char-card");
+        card.dataset.id = c.id;
+
+        const img = el("img");
+        img.src = c.img;
+        img.alt = c.name;
+
+        const label = el("span", "label");
+        label.textContent = c.name;
+
+        const crown = el("span", "crown");        // shown when this card is chosen
+        crown.textContent = "👑";
+        crown.setAttribute("aria-hidden", "true");
+
+        card.appendChild(crown);
+        card.appendChild(img);
+        card.appendChild(label);
+        card.addEventListener("click", () => selectCharacter(c));
+        row.appendChild(card);
+      });
+    }
+
+    function selectCharacter(c) {
+      state.character = c;
+      state.selectedGifts = [];
+      // brief visual highlight before advancing
+      document.querySelectorAll(".char-card").forEach((el) =>
+        el.classList.toggle("selected", el.dataset.id === c.id));
+      // small delay so the tap feedback is visible
+      setTimeout(() => { startGiftScreen(); }, 220);
+    }
+
+    /* ============================================================
+       SCREEN 3 — GIFTS (selection + countdown)
+       ============================================================ */
+    function startGiftScreen() {
+      buildGiftStage();
+      $("#dropChar").src = state.character.img;
+      $("#dropChar").alt = state.character.name;
+      $("#giftTitle").textContent = "Drag " + MAX_PICKS + " gifts to " + state.character.name + "!";
+      updateGiftHint();
+      showScreen("screen-gifts");
+      startCountdown();
+    }
+
+    // Build a gift image with a graceful emoji fallback if the PNG is missing.
+    function makeGiftImg(n) {
+      const img = el("img");
+      img.src = giftSrc(state.character.id, n);
+      img.alt = "Gift " + n;
+      img.addEventListener("error", function onErr() {
+        img.removeEventListener("error", onErr);
+        const span = el("span", "gift-emoji");
+        span.textContent = "🎁";
+        img.replaceWith(span);
+      });
+      return img;
+    }
+
+    // Lay out the character in the center with gifts split across the two side columns.
+    function buildGiftStage() {
+      const left = $("#giftColLeft"), right = $("#giftColRight");
+      left.innerHTML = ""; right.innerHTML = "";
+      const dz = $("#dropZone");
+      dz.classList.remove("frozen", "hot");
+      dz.querySelectorAll(".placed-gift").forEach((p) => p.remove());
+      const half = Math.ceil(GIFT_COUNT / 2);
+      for (let n = 1; n <= GIFT_COUNT; n++) {
+        const tile = el("div", "gift");
+        tile.dataset.n = String(n);
+        tile.appendChild(makeGiftImg(n));
+        attachDrag(tile, n);
+        (n <= half ? left : right).appendChild(tile);
+      }
+    }
+
+    /* ---- Drag & drop (Pointer Events → works for mouse AND touch) ----
+       Selection rules (unchanged in spirit):
+        - at most MAX_PICKS gifts can be given
+        - dropping a 3rd is ignored until one is removed
+        - removing + swapping is allowed (tap a given gift to take it back)
+        - giving 2 does NOT stop the timer (the countdown always runs full) */
+    let drag = null;   // active drag: {tile, n, ghost, pointerId, moved, startX, startY}
+
+    function attachDrag(tile, n) {
+      tile.addEventListener("pointerdown", (e) => {
+        if ($("#dropZone").classList.contains("frozen")) return;
+        e.preventDefault();
+        startDrag(tile, n, e);
+      });
+    }
+
+    function startDrag(tile, n, e) {
+      const ghost = tile.firstChild.cloneNode(true);  // img OR emoji span
+      ghost.className = "drag-ghost";
+      moveGhost(ghost, e.clientX, e.clientY);
+      document.body.appendChild(ghost);
+      tile.classList.add("dragging");
+      drag = { tile, n, ghost, pointerId: e.pointerId, moved: false, startX: e.clientX, startY: e.clientY };
+      try { tile.setPointerCapture(e.pointerId); } catch (_) {}   // route move/up back to this tile
+      tile.addEventListener("pointermove", onDragMove);
+      tile.addEventListener("pointerup", onDragEnd);
+      tile.addEventListener("pointercancel", onDragEnd);
+    }
+
+    function moveGhost(ghost, x, y) { ghost.style.left = x + "px"; ghost.style.top = y + "px"; }
+
+    function onDragMove(e) {
+      if (!drag) return;
+      moveGhost(drag.ghost, e.clientX, e.clientY);
+      if (Math.abs(e.clientX - drag.startX) + Math.abs(e.clientY - drag.startY) > 6) drag.moved = true;
+      const over = overDropZone(e.clientX, e.clientY);
+      $("#dropZone").classList.toggle("hot", over && canAccept(drag.n));
+    }
+
+    function onDragEnd(e) {
+      if (!drag) return;
+      const { tile, n, ghost, moved } = drag;
+      try { tile.releasePointerCapture(drag.pointerId); } catch (_) {}
+      tile.removeEventListener("pointermove", onDragMove);
+      tile.removeEventListener("pointerup", onDragEnd);
+      tile.removeEventListener("pointercancel", onDragEnd);
+      tile.classList.remove("dragging");
+      ghost.remove();
+      $("#dropZone").classList.remove("hot");
+      const dropped = overDropZone(e.clientX, e.clientY);
+      drag = null;
+
+      if ($("#dropZone").classList.contains("frozen")) return;
+
+      if (!moved) {
+        // A tap (no real drag): toggle, so taps still work as a fallback.
+        toggleGift(n);
+      } else if (dropped && !state.selectedGifts.includes(n)) {
+        selectGift(n, e.clientX, e.clientY);   // give it, right where it was dropped
+      }
+      // Dropped elsewhere, or already given: the ghost simply vanishes (snaps back).
+    }
+
+    // Is the point inside the character drop-zone?
+    function overDropZone(x, y) {
+      const r = $("#dropZone").getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }
+
+    // Can this gift still be added?
+    function canAccept(n) {
+      return !state.selectedGifts.includes(n) && state.selectedGifts.length < MAX_PICKS;
+    }
+
+    // Give a gift to the birthday girl. clientX/clientY are the drop point (in
+    // viewport coords); the gift is then placed and kept right there in the box.
+    function selectGift(n, clientX, clientY) {
+      if (!canAccept(n)) {
+        flashHint("That's enough — tap a gift on " + state.character.name + " to swap! 💅");
+        return;
+      }
+      state.selectedGifts.push(n);
+      markGiven(n, true);
+      placeGift(n, clientX, clientY);
+      updateGiftHint();
+    }
+
+    function deselectGift(n) {
+      const i = state.selectedGifts.indexOf(n);
+      if (i < 0) return;
+      state.selectedGifts.splice(i, 1);
+      markGiven(n, false);
+      const placed = document.querySelector('.placed-gift[data-n="' + n + '"]');
+      if (placed) placed.remove();
+      updateGiftHint();
+    }
+
+    function toggleGift(n) {
+      if (state.selectedGifts.includes(n)) deselectGift(n); else selectGift(n);
+    }
+
+    // Dim the side chip for a gift that's currently given.
+    function markGiven(n, given) {
+      const tile = document.querySelector('.gift[data-n="' + n + '"]');
+      if (tile) tile.classList.toggle("given", given);
+    }
+
+    // Drop a gift INTO the box wherever it was released — it stays at that spot.
+    // Without coords (the tap fallback) it lands near the middle, lightly offset
+    // so two gifts don't fully overlap. Tap a placed gift to take it back.
+    const PLACED_HALF = 30;   // half of .placed-gift size, for centering + clamping
+
+    // Clamp (x,y) so the whole chip stays inside the box, then position it.
+    function setChipPos(chip, x, y, r) {
+      x = Math.max(PLACED_HALF, Math.min(r.width - PLACED_HALF, x));
+      y = Math.max(PLACED_HALF, Math.min(r.height - PLACED_HALF, y));
+      chip.style.left = x + "px";
+      chip.style.top = y + "px";
+    }
+
+    function placeGift(n, clientX, clientY) {
+      const dz = $("#dropZone");
+      const r = dz.getBoundingClientRect();
+      let x, y;
+      if (clientX == null) {                                  // tap fallback
+        x = r.width / 2;
+        y = r.height / 2 + (state.selectedGifts.length - 1) * 64 - 32;
+      } else {
+        x = clientX - r.left;
+        y = clientY - r.top;
+      }
+      const chip = el("div", "placed-gift");
+      chip.dataset.n = String(n);
+      chip.title = "Drag to move • tap the × to remove";
+      chip.appendChild(makeGiftImg(n));
+      const xBtn = el("button", "placed-x");        // corner button to remove / swap
+      xBtn.type = "button";
+      xBtn.textContent = "×";
+      xBtn.setAttribute("aria-label", "Remove gift");
+      xBtn.addEventListener("pointerdown", (ev) => ev.stopPropagation());  // don't start a drag
+      xBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (!$("#dropZone").classList.contains("frozen")) deselectGift(n);
+      });
+      chip.appendChild(xBtn);
+      setChipPos(chip, x, y, r);
+      attachPlacedDrag(chip, n);
+      dz.appendChild(chip);
+      spawnPlaceSpark(dz, chip.style.left, chip.style.top);
+    }
+
+    // A quick ✨ flash at the spot a gift was dropped (self-removing).
+    function spawnPlaceSpark(dz, left, top) {
+      const spark = el("span", "place-spark");
+      spark.textContent = "✨";
+      spark.style.left = left;
+      spark.style.top = top;
+      spark.addEventListener("animationend", () => spark.remove());
+      dz.appendChild(spark);
+    }
+
+    // Let a placed gift be dragged around the box. A real drag repositions it;
+    // a tap (no real movement) removes it; dragging it off the box removes it too.
+    function attachPlacedDrag(chip, n) {
+      chip.addEventListener("pointerdown", (e) => {
+        const dz = $("#dropZone");
+        if (dz.classList.contains("frozen")) return;
+        e.preventDefault();
+        e.stopPropagation();                 // don't also trigger a side-chip drag
+        const startX = e.clientX, startY = e.clientY;
+        let moved = false;
+        chip.classList.add("grabbing");
+        try { chip.setPointerCapture(e.pointerId); } catch (_) {}
+
+        function onMove(ev) {
+          if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) > 6) moved = true;
+          const r = dz.getBoundingClientRect();
+          setChipPos(chip, ev.clientX - r.left, ev.clientY - r.top, r);
+        }
+        function onUp(ev) {
+          chip.removeEventListener("pointermove", onMove);
+          chip.removeEventListener("pointerup", onUp);
+          chip.removeEventListener("pointercancel", onUp);
+          chip.classList.remove("grabbing");
+          try { chip.releasePointerCapture(ev.pointerId); } catch (_) {}
+          if (dz.classList.contains("frozen")) return;
+          if (!moved) { deselectGift(n); return; }   // a tap → take it back
+          const r = dz.getBoundingClientRect();
+          const inside = ev.clientX >= r.left && ev.clientX <= r.right &&
+                         ev.clientY >= r.top && ev.clientY <= r.bottom;
+          if (!inside) deselectGift(n);              // dragged off the box → remove
+          // otherwise it simply stays at its new spot
+        }
+        chip.addEventListener("pointermove", onMove);
+        chip.addEventListener("pointerup", onUp);
+        chip.addEventListener("pointercancel", onUp);
+      });
+    }
+
+    function updateGiftHint() {
+      const left = MAX_PICKS - state.selectedGifts.length;
+      const name = state.character ? state.character.name : "the birthday girl";
+      $("#giftHint").textContent = left > 0
+        ? "Drag " + left + " more gift" + (left > 1 ? "s" : "") + " onto " + name + "…"
+        : "2 given! Drag to move, or tap the × to remove ⏳";
+      // glow the drop-zone while there are still gifts to give
+      const dz = $("#dropZone");
+      dz.classList.toggle("inviting", left > 0 && !dz.classList.contains("frozen"));
+    }
+
+    let hintTimeout = null;
+    function flashHint(msg) {
+      const hint = $("#giftHint");
+      hint.textContent = msg;
+      clearTimeout(hintTimeout);
+      hintTimeout = setTimeout(updateGiftHint, 1400);
+    }
+
+    // The timer ALWAYS runs the full TIMER_SECONDS regardless of picks.
+    function startCountdown() {
+      clearInterval(countdownId);
+      let remaining = TIMER_SECONDS;
+      const timerEl = $("#timer");
+      const numEl = $("#timerNum");
+      numEl.textContent = remaining;
+      timerEl.classList.remove("low");
+      timerEl.style.setProperty("--p", 100);   // full ring to start
+
+      countdownId = setInterval(() => {
+        remaining -= 1;
+        numEl.textContent = Math.max(remaining, 0);
+        timerEl.style.setProperty("--p", (Math.max(remaining, 0) / TIMER_SECONDS) * 100);
+        if (remaining <= 3) timerEl.classList.add("low");
+        if (remaining <= 0) {
+          clearInterval(countdownId);
+          countdownId = null;
+          freezeAndFinish();
+        }
+      }, 1000);
+    }
+
+    // Time's up: freeze the stage, then go to results with whatever 0–2 are given.
+    function freezeAndFinish() {
+      if (drag) { drag.ghost.remove(); drag = null; }   // drop any in-flight drag
+      captureScene();                                   // remember the exact layout
+      $("#dropZone").classList.add("frozen");
+      $("#dropZone").classList.remove("inviting");
+      document.querySelectorAll(".gift").forEach((g) => { g.style.pointerEvents = "none"; });
+      setTimeout(showResults, 500);   // brief beat so players see the freeze
+    }
+
+    // Snapshot the character + placed-gift layout as fractions of the drop-zone,
+    // so the results screen can replay the same scene at any size.
+    function captureScene() {
+      const dz = $("#dropZone");
+      const d = dz.getBoundingClientRect();
+      const ch = $("#dropChar").getBoundingClientRect();
+      state.scene = {
+        aspect: d.width / d.height,
+        char: {
+          leftPct: (ch.left - d.left) / d.width,
+          topPct: (ch.top - d.top) / d.height,
+          wPct: ch.width / d.width,
+          hPct: ch.height / d.height,
+        },
+        gifts: Array.prototype.map.call(dz.querySelectorAll(".placed-gift"), (chip) => {
+          const r = chip.getBoundingClientRect();
+          return {
+            n: Number(chip.dataset.n),
+            cxPct: (r.left + r.width / 2 - d.left) / d.width,
+            cyPct: (r.top + r.height / 2 - d.top) / d.height,
+            sizePct: r.width / d.width,
+          };
+        }),
+      };
+    }
+
+    /* ============================================================
+       SCREEN 4 — RESULTS
+       ============================================================ */
+    function showResults() {
+      const c = state.character;
+
+      // Pick one of the 5 reaction lines at random for this result.
+      const line = RESULT_LINES[Math.floor(Math.random() * RESULT_LINES.length)];
+      $("#resultWho").innerHTML = line("<b>" + escapeHtml(c.name) + "</b>");
+
+      renderResultStage();
+      $("#resultNote").textContent = state.selectedGifts.length === 0
+        ? "No gifts this time — but it's the thought that counts! 💝"
+        : "";
+
+      launchConfetti();
+      showScreen("screen-results");
+
+      // Hand the result off to storage (stubbed for now).
+      saveResult({
+        name: state.playerName,
+        character: c.id,
+        characterName: c.name,
+        gifts: state.selectedGifts.slice(),   // 0–2 gift numbers
+        // where each gift landed, as fractions of the box (for replaying the scene)
+        placements: state.scene ? state.scene.gifts.map((g) => ({
+          n: g.n, x: +g.cxPct.toFixed(3), y: +g.cyPct.toFixed(3),
+        })) : [],
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Rebuild the gifts-screen scene (character + gifts in place) on the results card.
+    function renderResultStage() {
+      const stage = $("#resultStage");
+      stage.innerHTML = "";
+      const scene = state.scene;
+
+      // The character image defines the stage; gifts overlay directly on it
+      // (no surrounding box), positioned where the player placed them.
+      const img = el("img", "result-char");
+      img.src = state.character.img;
+      img.alt = state.character.name;
+      stage.appendChild(img);
+
+      if (scene) {
+        const ch = scene.char;
+        scene.gifts.forEach((g, i) => {
+          const chip = el("div", "result-gift");
+          // convert drop-zone fractions → character-relative fractions
+          chip.style.left = ((g.cxPct - ch.leftPct) / ch.wPct) * 100 + "%";
+          chip.style.top = ((g.cyPct - ch.topPct) / ch.hPct) * 100 + "%";
+          chip.style.width = (g.sizePct / ch.wPct) * 100 + "%";
+          chip.style.animationDelay = (0.4 + i * 0.18) + "s";   // assemble after the card ta-da
+          chip.appendChild(makeGiftImg(g.n));
+          stage.appendChild(chip);
+        });
+      }
+    }
+
+    /* ============================================================
+       saveResult — STUB.
+       For now it just logs. Wire this up to localStorage, a backend,
+       Firebase, etc. later. Receives a clean data object.
+       ============================================================ */
+    function saveResult(data) {
+      console.log("saveResult:", data);
+      // Send to Firebase (aggregate tally + raw log) if it's configured.
+      if (window.BirthdayDB) {
+        window.BirthdayDB.submitResult(data).catch((e) => console.warn("tally submit failed", e));
+      }
+    }
+
+    /* ============================================================
+       SCREEN 5 — TALLY (what everyone picked)
+       ============================================================ */
+    let tallyUnsub = null;
+    function teardownTally() { if (tallyUnsub) { tallyUnsub(); tallyUnsub = null; } }
+
+    function openTally() {
+      teardownTally();
+      const content = $("#tallyContent");
+      content.innerHTML = '<p class="tally-msg">Loading the party tally… 🎀</p>';
+      showScreen("screen-tally");
+      if (!window.BirthdayDB) {
+        content.innerHTML = '<p class="tally-msg">The tally isn’t set up yet. 🎀</p>';
+        return;
+      }
+      // Live: counts tick up as other guests play.
+      tallyUnsub = window.BirthdayDB.subscribeTallies((res) => {
+        if (!res || res.error) {
+          content.innerHTML = (res && res.error === "unconfigured")
+            ? '<p class="tally-msg">The tally isn’t set up yet. 🎀</p>'
+            : '<p class="tally-msg">Can’t reach the party tally right now. 📡</p>';
+          return;
+        }
+        renderTally(res);
+      });
+    }
+
+    function renderTally(res) {
+      const content = $("#tallyContent");
+      const total = ((res.june && res.june.players) || 0) + ((res.jordyn && res.jordyn.players) || 0);
+      if (total === 0) {
+        content.innerHTML = '<p class="tally-msg">No picks yet — be the first! 🎀</p>';
+        return;
+      }
+      content.innerHTML = CHARACTERS.map((c) => tallySection(c, res[c.id])).join("");
+    }
+
+    // One character's leaderboard: gifts sorted by popularity, with bars + badges.
+    function tallySection(c, data) {
+      data = data || { players: 0, gifts: {} };
+      const players = data.players || 0;
+      const gifts = data.gifts || {};
+      const rows = [];
+      for (let n = 1; n <= GIFT_COUNT; n++) rows.push({ n: n, count: gifts[String(n)] || 0 });
+      rows.sort((a, b) => b.count - a.count);
+      const topN = rows[0].count > 0 ? rows[0].n : -1;
+      const mine = (state.character && state.character.id === c.id) ? state.selectedGifts : [];
+
+      const rowsHtml = rows.map((r) => {
+        const pct = players > 0 ? Math.round((r.count / players) * 100) : 0;
+        const you = mine.indexOf(r.n) >= 0;
+        const badges =
+          (r.n === topN ? '<span class="tally-badge top">★ top</span> ' : "") +
+          (you ? '<span class="tally-badge you">♥ you</span>' : "");
+        return (
+          '<div class="tally-row' + (you ? " you" : "") + '">' +
+            '<img class="tally-thumb" src="' + giftSrc(c.id, r.n) + '" alt="" />' +
+            '<div class="tally-bar-wrap">' +
+              '<div class="tally-bar-top"><span>' + badges + '</span>' +
+                '<span class="tally-count">' + r.count + '</span></div>' +
+              '<div class="tally-track"><div class="tally-fill" style="width:' + pct + '%"></div></div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join("");
+
+      return (
+        '<div class="tally-char">' +
+          '<div class="tally-char-head">' +
+            '<img class="tally-avatar" src="' + c.img + '" alt="" />' +
+            '<span class="tally-name">' + c.name + '</span>' +
+            '<span class="tally-players">' + players + ' player' + (players === 1 ? "" : "s") + '</span>' +
+          '</div>' + rowsHtml +
+        '</div>'
+      );
+    }
+
+    /* ============================================================
+       NAVIGATION — back arrows + play again
+       ============================================================ */
+    document.querySelectorAll(".back-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // Leaving the gifts screen must cancel the countdown.
+        clearInterval(countdownId);
+        countdownId = null;
+        teardownTally();                 // stop any live tally listener
+        showScreen(btn.dataset.back);
+      });
+    });
+
+    // "Done" — finish immediately with the current selection (skip the wait).
+    $("#doneBtn").addEventListener("click", () => {
+      const dz = $("#dropZone");
+      if (dz.classList.contains("frozen")) return;   // already finishing
+      clearInterval(countdownId);
+      countdownId = null;
+      freezeAndFinish();
+    });
+
+    function resetToName() {
+      // Full reset back to the name screen for a fresh session.
+      state.character = null;
+      state.selectedGifts = [];
+      $("#nameInput").value = state.playerName;   // keep the name handy
+      clearConfetti();
+      teardownTally();
+      showScreen("screen-name");
+    }
+    $("#playAgain").addEventListener("click", resetToName);
+    $("#tallyPlayAgain").addEventListener("click", resetToName);
+    $("#seeOthersBtn").addEventListener("click", openTally);
+
+    /* ============================================================
+       LITTLE EXTRAS — confetti + html escaping
+       ============================================================ */
+    function escapeHtml(str) {
+      const d = el("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    const CONFETTI_COLORS = ["#fff", "#ff4fa3", "#ffd6ec", "#ffe066", "#9ed2ff", "#b06aff"];
+    function launchConfetti() {
+      const box = $("#confetti");
+      clearConfetti();
+      // gentle falling rain with horizontal drift + mixed shapes
+      for (let i = 0; i < 40; i++) {
+        const s = el("span", i % 3 === 0 ? "round" : "");
+        s.style.left = Math.random() * 100 + "vw";
+        s.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+        s.style.setProperty("--x", (Math.random() * 80 - 40) + "px");
+        s.style.animationDuration = (2.5 + Math.random() * 2.5) + "s";
+        s.style.animationDelay = (Math.random() * 1.5) + "s";
+        box.appendChild(s);
+      }
+      // one-shot celebratory burst from the center
+      for (let i = 0; i < 14; i++) {
+        const ang = (i / 14) * Math.PI * 2;
+        const dist = 120 + (i % 4) * 30;
+        const s = el("span", "burst" + (i % 2 ? " round" : ""));
+        s.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+        s.style.setProperty("--bx", Math.cos(ang) * dist + "px");
+        s.style.setProperty("--by", Math.sin(ang) * dist + "px");
+        box.appendChild(s);
+      }
+    }
+    function clearConfetti() { $("#confetti").innerHTML = ""; }
+
+    // ---- Ambient floating background decorations (built once) ----
+    function buildDecor() {
+      const box = $("#bgDecor");
+      const glyphs = ["💗", "🎈", "✨", "🌸", "💖", "⭐", "🎀"];
+      for (let i = 0; i < 11; i++) {
+        const s = el("span");
+        s.textContent = glyphs[i % glyphs.length];
+        s.style.left = (4 + (i * 8.5) % 92) + "vw";
+        s.style.fontSize = (1.1 + (i % 4) * 0.4) + "rem";
+        const dur = 13 + (i % 5) * 2.4;
+        s.style.animationDuration = dur + "s";
+        s.style.animationDelay = "-" + ((i * 2.3) % dur) + "s";   // pre-scatter, no synced start
+        s.style.setProperty("--sway", (i % 2 ? 1 : -1) * (16 + (i % 3) * 12) + "px");
+        box.appendChild(s);
+      }
+    }
+    buildDecor();
+  })();
+  </script>
+
+  <!-- ============================================================
+       FIREBASE — stores the shared gift tally + a raw log of each play.
+       OPTIONAL: the game works fully without it (the tally page just
+       shows a friendly "not set up" message until configured).
+
+       SETUP:
+       1. console.firebase.google.com → create a project.
+       2. Build → Firestore Database → create (Production mode).
+       3. Build → Authentication → Sign-in method → enable "Anonymous".
+       4. Project settings → your apps → Web app → copy firebaseConfig
+          and paste it below (this web config is safe to commit).
+       5. Firestore → Rules → paste:
+
+          rules_version = '2';
+          service cloud.firestore {
+            match /databases/{database}/documents {
+              match /tallies/{char} {
+                allow read: if true;
+                allow write: if request.auth != null
+                             && (char == 'june' || char == 'jordyn');
+              }
+              match /results/{id} {
+                allow create: if request.auth != null;
+                allow read, update, delete: if false;
+              }
+            }
+          }
+       ============================================================ -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot, increment, serverTimestamp, collection, addDoc }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    // 🔧 PASTE YOUR firebaseConfig HERE ------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyCRjJvbhN4gZkKWWbhQkMZW8cN2Tsgc1CI",
+  authDomain: "june-birthday-babies.firebaseapp.com",
+  projectId: "june-birthday-babies",
+  storageBucket: "june-birthday-babies.firebasestorage.app",
+  messagingSenderId: "561866987858",
+  appId: "1:561866987858:web:81ec8564039dc3e531c28b"
+};
+    // ---------------------------------------------------------------
+
+    const st = { db: null, ok: false, reason: "unconfigured" };
+    let resolveReady;
+    const ready = new Promise((r) => (resolveReady = r));
+
+    // API used by the game (window.BirthdayDB). Methods wait for init.
+    window.BirthdayDB = {
+      ready,
+      // Record a finished play: bump the per-gift counters + append a raw log.
+      async submitResult(data) {
+        await ready;
+        if (!st.ok) return false;
+        try {
+          const giftsObj = {};
+          (data.gifts || []).forEach((n) => { giftsObj[String(n)] = increment(1); });
+          await setDoc(
+            doc(st.db, "tallies", data.character),
+            { players: increment(1), gifts: giftsObj, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+          await addDoc(collection(st.db, "results"), {
+            name: data.name || "",
+            character: data.character,
+            gifts: data.gifts || [],
+            placements: data.placements || [],
+            ts: serverTimestamp(),
+          });
+          return true;
+        } catch (e) { console.warn("tally write failed", e); return false; }
+      },
+      // Live-subscribe to both character tallies; cb gets {june, jordyn} or {error}.
+      subscribeTallies(cb) {
+        let cancelled = false;
+        const unsubs = [];
+        (async () => {
+          await ready;
+          if (cancelled) return;
+          if (!st.ok) { cb({ error: st.reason }); return; }
+          const acc = { june: null, jordyn: null };
+          ["june", "jordyn"].forEach((id) => {
+            const u = onSnapshot(
+              doc(st.db, "tallies", id),
+              (snap) => { acc[id] = snap.exists() ? snap.data() : { players: 0, gifts: {} }; cb({ june: acc.june, jordyn: acc.jordyn }); },
+              () => cb({ error: "offline" })
+            );
+            unsubs.push(u);
+          });
+        })();
+        return () => { cancelled = true; unsubs.forEach((u) => u && u()); };
+      },
+    };
+
+    (async () => {
+      try {
+        if (String(firebaseConfig.apiKey).indexOf("PASTE") === 0) { st.reason = "unconfigured"; return; }
+        const app = initializeApp(firebaseConfig);
+        st.db = getFirestore(app);
+        await signInAnonymously(getAuth(app));
+        st.ok = true;
+      } catch (e) {
+        st.reason = "offline";
+        console.warn("Firebase init failed:", e);
+      } finally {
+        resolveReady();
+      }
+    })();
+  </script>
+</body>
+</html>

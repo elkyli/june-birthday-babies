@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Local dev / editor config (not needed on GitHub Pages)
+.claude/
+
+# Original source art — already imported into assets/ as *-gift-N.png
+june-items/
+jordyn-items/
